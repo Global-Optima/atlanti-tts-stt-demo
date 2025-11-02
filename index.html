@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlanti AI — TTS & STT</title>
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Plyr (audio player) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.css">
+  <script src="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.polyfilled.min.js"></script>
+
+  <style>
+    :root{
+      --brand:#2563eb;
+      --ink:#0f172a; --muted:#475569; --line:#e5e7eb; --bg:#ffffff;
+      --ok:#1e3a8a; --err:#ef4444;
+      --r:12px; --h-ctrl:44px; --h-ctrl-sm:40px;
+      --g1:8px; --g2:12px; --g3:16px; --g4:20px;
+      --fs-sm:14px; --fs:16px; --fs-h2:18px; --fs-h1:28px; --lh:1.45;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--ink); background:var(--bg);
+      font-family:"Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size:var(--fs); line-height:var(--lh); accent-color:var(--brand);
+    }
+    .wrap{max-width:980px;margin:24px auto 60px;padding:0 var(--g3)}
+
+    header{
+      border:1px solid var(--line); border-radius:var(--r);
+      padding:var(--g3); background:#f8fafc; display:grid; gap:var(--g2);
+    }
+    header h1{margin:0; font-size:var(--fs-h1); font-weight:800; letter-spacing:.2px}
+    header p{margin:0; color:var(--muted)}
+    .token-bar{display:grid; grid-template-columns:1fr auto auto; gap:var(--g2)}
+    @media (max-width:720px){ .token-bar{grid-template-columns:1fr} }
+    .token-bar input{height:var(--h-ctrl); padding:0 12px; border:1px solid var(--line); border-radius:var(--r); background:#fff}
+    .token-bar button{height:var(--h-ctrl); padding:0 14px; border:1px solid var(--line); border-radius:var(--r); background:#fff; cursor:pointer; font-weight:700}
+    .token-bar .primary{ background:var(--brand); border-color:var(--brand); color:#fff }
+
+    .grid{
+      display:grid; gap:var(--g3); margin-top:var(--g3);
+      grid-template-columns:repeat(12,1fr);
+      align-items:stretch; /* ensures equal heights per row */
+    }
+    .card{
+      grid-column:span 12;
+      border:1px solid var(--line); border-radius:var(--r); background:#fff;
+      padding:var(--g3);
+      display:grid;
+      grid-template-rows: auto 1fr auto;  /* header | body grows | bottom strip */
+      gap:var(--g3);
+      min-height:420px; /* can tweak; keeps nice baseline */
+    }
+    @media (min-width:960px){ .half{grid-column:span 6} }
+
+    .card-header > h2{margin:0; font-size:var(--fs-h2); font-weight:700}
+    .card-header > p{margin:0; color:var(--muted); font-size:var(--fs-sm)}
+
+    .card-body{ display:grid; gap:var(--g3); }
+
+    label{display:block; font-weight:600; margin:0 0 var(--g1)}
+    textarea{
+      width:100%; min-height:110px; resize:vertical;
+      border:1px solid var(--line); border-radius:var(--r); background:#fff; padding:10px 12px;
+    }
+
+    /* Custom select */
+    .select{position:relative}
+    .select select{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      width:100%; height:var(--h-ctrl);
+      border:1px solid var(--line); border-radius:var(--r); background:#fff;
+      padding:0 40px 0 12px; font-size:var(--fs);
+    }
+    .select::after{
+      content:""; position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:6px solid var(--muted);
+      pointer-events:none;
+    }
+
+    /* Identical bottom action strips — aligned by grid row */
+    .action-strip{
+      display:flex; justify-content:flex-end; align-items:flex-end; gap:var(--g2);
+      border-top:1px solid var(--line); padding-top:var(--g2);
+      grid-row:3;
+    }
+    .action-strip .field{width:260px}
+    @media (max-width:720px){
+      .action-strip{flex-direction:column; align-items:stretch}
+      .action-strip .field{width:100%}
+      .btn.block{width:100%}
+    }
+
+    /* Buttons */
+    .btn{
+      height:var(--h-ctrl); line-height:calc(var(--h-ctrl) - 2px);
+      border-radius:var(--r); border:1px solid var(--brand);
+      background:var(--brand); color:#fff; font-weight:700; cursor:pointer;
+      padding:0 16px; display:inline-flex; align-items:center; gap:8px; justify-content:center; white-space:nowrap;
+    }
+    .btn.secondary{background:#fff; color:var(--ink); border-color:var(--line)}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    .btn-icon{width:var(--h-ctrl); padding:0; aspect-ratio:1/1; display:inline-flex; align-items:center; justify-content:center}
+    .btn.block{width:100%}
+
+    .panel{border:1px solid var(--line); border-radius:var(--r); background:#fafafa; padding:var(--g2); display:grid; gap:var(--g2)}
+    .mono{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:var(--fs-sm)}
+
+    /* Recorder actions */
+    .rec-actions{display:grid; grid-template-columns: 1fr auto; gap:var(--g2)}
+    @media (max-width:720px){ .rec-actions{grid-template-columns:1fr} }
+
+    /* File picker */
+    .file{display:grid; grid-template-columns:auto 1fr; gap:var(--g2); align-items:center}
+    .file input[type="file"]{display:none}
+    .file .file-btn{
+      height:var(--h-ctrl-sm); padding:0 12px; border:1px solid var(--line); border-radius:var(--r);
+      background:#fff; cursor:pointer; font-weight:700; display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-sm);
+    }
+    .file .file-name{color:var(--muted); font-size:var(--fs-sm)}
+
+    /* Toast */
+    #toast{
+      position:fixed; right:24px; bottom:24px; background:#fff; border:1px solid var(--line);
+      border-radius:10px; box-shadow:0 8px 30px rgba(2,6,23,.08);
+      padding:10px 14px; display:none; z-index:1000; font-weight:700;
+    }
+    #toast.ok{color:var(--ok)} #toast.err{color:var(--err)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Atlanti AI — TTS & STT</h1>
+      <p>Мәтінді дыбысқа және дыбысты мәтінге айналдырудың ықшам, таза интерфейсі.</p>
+
+      <div class="token-bar">
+        <input id="apiToken" type="password" placeholder="API токен (жергілікті сақталады)" autocomplete="off" />
+        <button id="saveTokenBtn" class="primary">Сақтау</button>
+        <button id="clearTokenBtn">Тазалау</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <!-- ================= TTS ================= -->
+      <div class="card half" id="ttsCard">
+        <div class="card-header">
+          <h2>Мәтінді дыбысқа айналдыру (TTS)</h2>
+          <p class="sub">Мәтін енгізіп, аудионы алыңыз.</p>
+        </div>
+
+        <div class="card-body">
+          <div>
+            <label for="ttsText">Мәтін</label>
+            <textarea id="ttsText" placeholder="Мәтінді енгізіңіз">Hello, this is a test of the TTS API</textarea>
+          </div>
+
+          <div id="ttsOut" class="panel" style="display:none">
+            <div id="ttsMeta" class="mono"></div>
+            <audio id="ttsAudio" class="plyr" controls preload="metadata"></audio>
+
+            <div class="file" style="grid-template-columns:auto auto 1fr">
+              <label class="mono" for="rate" style="align-self:center">Ойнату жылд.</label>
+              <input id="rate" type="range" min="0.5" max="2" step="0.1" value="1" style="width:260px" />
+              <span id="rateVal" class="mono" style="justify-self:start; align-self:center">1.0×</span>
+            </div>
+
+            <div>
+              <a id="ttsDownload" class="btn secondary" href="#" download>
+                <i data-lucide="download"></i><span>Жүктеп алу</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTTOM strip (aligned across both cards) -->
+        <div class="action-strip">
+          <div class="field">
+            <label for="ttsLang">Тіл</label>
+            <div class="select">
+              <select id="ttsLang">
+                <option value="en" selected>Ағылшын (en)</option>
+                <option value="ru">Орыс (ru)</option>
+                <option value="kk">Қазақ (kk)</option>
+              </select>
+            </div>
+          </div>
+          <button id="ttsBtn" class="btn">
+            <i data-lucide="play-circle"></i><span>Дыбыстау</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= STT ================= -->
+      <div class="card half" id="sttCard">
+        <div class="card-header">
+          <h2>Дыбысты мәтінге айналдыру (STT)</h2>
+          <p class="sub">Жоғарыда — жазғыш пен файл; төменде — тіл мен жіберу.</p>
+        </div>
+
+        <div class="card-body">
+          <div class="panel">
+            <div class="mono" id="recTimer">00:00</div>
+            <audio id="recPreview" class="plyr" controls preload="metadata" style="display:none"></audio>
+
+            <div class="file">
+              <input id="sttFile" type="file" accept="audio/*" />
+              <label for="sttFile" class="file-btn"><i data-lucide="upload"></i>Файл таңдау</label>
+              <span id="fileName" class="file-name">Файл таңдалмады</span>
+            </div>
+
+            <div class="rec-actions">
+              <button id="recBtn" class="btn block" type="button">
+                <i data-lucide="mic"></i><span>Жазуды бастау</span>
+              </button>
+              <button id="resetRecBtn" class="btn secondary btn-icon" type="button" title="Тазалау" disabled>
+                <i data-lucide="rotate-ccw"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="sttOut" class="panel" style="display:none">
+            <div id="sttText" class="mono" style="white-space:pre-wrap"></div>
+          </div>
+        </div>
+
+        <!-- BOTTOM strip (aligned across both cards) -->
+        <div class="action-strip">
+          <div class="field">
+            <label for="sttLang">Тіл</label>
+            <div class="select">
+              <select id="sttLang">
+                <option value="en" selected>Ағылшын (en)</option>
+                <option value="ru">Орыс (ru)</option>
+                <option value="kk">Қазақ (kk)</option>
+              </select>
+            </div>
+          </div>
+          <button id="sttBtn" class="btn" type="button" disabled>
+            <i data-lucide="send"></i><span>Тануға жіберу</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script>
+    const API_BASE = 'https://platform.atlanti.ai';
+
+    /* Icons */
+    document.addEventListener('DOMContentLoaded', () => { if (window.lucide) lucide.createIcons(); });
+
+    /* Plyr */
+    const ttsAudioEl = document.getElementById('ttsAudio');
+    const recAudioEl = document.getElementById('recPreview');
+    const ttsPlayer = new Plyr(ttsAudioEl, { controls:['play','progress','current-time','duration','mute','volume'] });
+    const recPlayer = new Plyr(recAudioEl, { controls:['play','progress','current-time','duration','mute','volume'] });
+
+    /* Token */
+    const tokenInput = document.getElementById('apiToken');
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+    const clearTokenBtn = document.getElementById('clearTokenBtn');
+    tokenInput.value = localStorage.getItem('atlanti_token') || '';
+    saveTokenBtn.addEventListener('click', () => localStorage.setItem('atlanti_token', tokenInput.value.trim()));
+    clearTokenBtn.addEventListener('click', () => { localStorage.removeItem('atlanti_token'); tokenInput.value=''; });
+    const getToken = () => (tokenInput.value || localStorage.getItem('atlanti_token') || '').trim();
+
+    /* Toast */
+    const toastEl = document.getElementById('toast');
+    let toastTimer;
+    function toast(msg, type='ok', ms=3000){
+      toastEl.textContent = msg; toastEl.className = type; toastEl.style.display='block';
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=>{ toastEl.style.display='none'; }, ms);
+    }
+
+    /* Helpers */
+    const b64ToBlob = (b64, mime) => {
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], {type:mime});
+    };
+    const fmtSecs = s => (s ?? 0).toFixed(2)+'s';
+
+    /* TTS */
+    const ttsBtn = document.getElementById('ttsBtn');
+    const ttsText = document.getElementById('ttsText');
+    const ttsLang = document.getElementById('ttsLang');
+    const ttsOut  = document.getElementById('ttsOut');
+    const ttsMeta = document.getElementById('ttsMeta');
+    const ttsDownload = document.getElementById('ttsDownload');
+    const rate = document.getElementById('rate');
+    const rateVal = document.getElementById('rateVal');
+    let ttsUrl = null;
+
+    rate?.addEventListener('input', () => {
+      const v = +rate.value || 1;
+      rateVal.textContent = v.toFixed(1) + '×';
+      ttsAudioEl.playbackRate = v;
+    });
+
+    ttsBtn.addEventListener('click', async () => {
+      const token = getToken();
+      if (!token){ toast('API токені жоқ.', 'err'); return; }
+      const text = (ttsText.value || '').trim();
+      if (!text){ toast('Мәтін енгізіңіз.', 'err'); return; }
+
+      ttsBtn.disabled = true; toast('Дыбыстандыру…', 'ok', 1500); ttsOut.style.display='none';
+      try{
+        const res = await fetch(`${API_BASE}/api/v1/tts/synthesize-json`, {
+          method:'POST',
+          headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+          body: JSON.stringify({ text, language: ttsLang.value })
+        });
+        if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+(t?' — '+t:'')); }
+        const result = await res.json();
+        if(!result?.success) throw new Error(result?.message || 'Қате');
+
+        const { audio_base64, format, duration } = result.data;
+        const blob = b64ToBlob(audio_base64, `audio/${format||'mp3'}`);
+        if (ttsUrl) URL.revokeObjectURL(ttsUrl);
+        ttsUrl = URL.createObjectURL(blob);
+
+        ttsAudioEl.src = ttsUrl;
+        ttsAudioEl.playbackRate = +rate.value || 1;
+        ttsDownload.href = ttsUrl; ttsDownload.download = `tts.${format||'mp3'}`;
+        ttsMeta.textContent = `пішім: ${format||'mp3'}   ұзақтығы: ${fmtSecs(duration)}   өлшемі: ${blob.size} B`;
+        ttsOut.style.display = 'grid';
+        toast('Дайын ✓', 'ok');
+      }catch(e){ toast('Қате: '+(e.message||e), 'err', 4000); }
+      finally{ ttsBtn.disabled = false; }
+    });
+
+    /* STT */
+    const recBtn = document.getElementById('recBtn');
+    const resetRecBtn = document.getElementById('resetRecBtn');
+    const recTimer = document.getElementById('recTimer');
+    const sttFile = document.getElementById('sttFile');
+    const fileName = document.getElementById('fileName');
+    const sttBtn = document.getElementById('sttBtn');
+    const sttOut = document.getElementById('sttOut');
+    const sttText = document.getElementById('sttText');
+    const sttLang = document.getElementById('sttLang');
+
+    let mediaRecorder = null, chunks = [], recUrl = null, preparedBlob = null, timerId = null, startTs = 0;
+
+    function setTimer(run){
+      clearInterval(timerId);
+      if(!run){ recTimer.textContent='00:00'; return; }
+      timerId = setInterval(()=>{
+        const s = Math.floor((Date.now()-startTs)/1000);
+        const m = String(Math.floor(s/60)).padStart(2,'0');
+        const ss = String(s%60).padStart(2,'0');
+        recTimer.textContent = `${m}:${ss}`;
+      }, 250);
+    }
+
+    function showPreviewFromBlob(blob){
+      if (recUrl) URL.revokeObjectURL(recUrl);
+      recUrl = URL.createObjectURL(blob);
+      recAudioEl.src = recUrl;
+      recAudioEl.style.display = 'block';
+      preparedBlob = blob;
+      sttBtn.disabled = false; resetRecBtn.disabled = false;
+    }
+
+    recBtn.addEventListener('click', async () => {
+      if (mediaRecorder?.state === 'recording') {
+        mediaRecorder.stop();
+        recBtn.innerHTML = `<i data-lucide="mic"></i><span>Жазуды бастау</span>`; lucide.createIcons();
+        setTimer(false);
+        return;
+      }
+      try{
+        if(!('MediaRecorder' in window)) throw new Error('Браузер жазуды қолдамайды.');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : undefined });
+        mediaRecorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+          stream.getTracks().forEach(t => t.stop());
+          showPreviewFromBlob(blob);
+        };
+        mediaRecorder.start();
+        startTs = Date.now();
+        recBtn.innerHTML = `<i data-lucide="square"></i><span>Тоқтату</span>`; lucide.createIcons();
+        setTimer(true);
+        sttOut.style.display = 'none';
+      }catch(e){ toast('Жазғыш қатесі: '+(e.message||e), 'err', 4000); }
+    });
+
+    resetRecBtn.addEventListener('click', () => {
+      preparedBlob = null; sttFile.value = ''; fileName.textContent = 'Файл таңдалмады';
+      sttBtn.disabled = true; resetRecBtn.disabled = true;
+      recAudioEl.removeAttribute('src'); recAudioEl.style.display = 'none';
+      if (recUrl) { URL.revokeObjectURL(recUrl); recUrl = null; }
+      recTimer.textContent = '00:00';
+    });
+
+    sttFile.addEventListener('change', () => {
+      const f = sttFile.files?.[0];
+      if (!f) { preparedBlob = null; sttBtn.disabled = true; fileName.textContent = 'Файл таңдалмады'; return; }
+      preparedBlob = f; fileName.textContent = f.name;
+      if (recUrl) URL.revokeObjectURL(recUrl);
+      recUrl = URL.createObjectURL(f);
+      recAudioEl.src = recUrl;
+      recAudioEl.style.display = 'block';
+      resetRecBtn.disabled = false;
+    });
+
+    sttBtn.addEventListener('click', async () => {
+      const token = getToken(); if (!token){ toast('API токені жоқ.', 'err'); return; }
+      if (!preparedBlob){ toast('Аудио таңдалмады.', 'err'); return; }
+
+      sttBtn.disabled = true; toast('Тану жүріп жатыр…', 'ok', 1500); sttOut.style.display='none';
+      try{
+        const form = new FormData();
+        const ext =
+          preparedBlob.type.includes('wav') ? 'wav' :
+          preparedBlob.type.includes('ogg') ? 'ogg' :
+          preparedBlob.type.includes('mp3') ? 'mp3' :
+          preparedBlob.type.includes('m4a') ? 'm4a' : 'webm';
+        form.append('audio', preparedBlob, `recording.${ext}`);
+        form.append('language', sttLang.value);
+
+        const res = await fetch(`${API_BASE}/api/v1/stt/transcribe`, {
+          method:'POST', headers:{ 'Authorization':'Bearer '+token }, body: form
+        });
+        if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+(t?' — '+t:'')); }
+        const result = await res.json();
+        if(!result?.success) throw new Error(result?.message || 'Қате');
+
+        sttText.textContent = result.data?.text || '';
+        sttOut.style.display = 'grid';
+        toast('Дайын ✓', 'ok');
+      }catch(e){ toast('Қате: '+(e.message||e), 'err', 4000); }
+      finally{ sttBtn.disabled = false; }
+    });
+  </script>
+</body>
+</html>
