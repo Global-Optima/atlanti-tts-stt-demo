@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Atlanti AI — TTS & STT</title>
+  <title>TTS & STT</title>
 
   <!-- Font -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -123,7 +123,12 @@
       height:var(--h-ctrl-sm); padding:0 12px; border:1px solid var(--line); border-radius:var(--r);
       background:#fff; cursor:pointer; font-weight:700; display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-sm);
     }
-    .file .file-name{color:var(--muted); font-size:var(--fs-sm)}
+    /* Allow the file container to shrink and prevent long filenames from overflowing the card */
+    .file{min-width:0}
+    .file .file-name{
+      color:var(--muted); font-size:var(--fs-sm);
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; max-width:100%;
+    }
 
     /* Toast */
     #toast{
@@ -137,7 +142,7 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Atlanti AI — TTS & STT</h1>
+      <h1>TTS & STT</h1>
       <p>Мәтінді дыбысқа және дыбысты мәтінге айналдырудың ықшам, таза интерфейсі.</p>
 
       <div class="token-bar">
@@ -414,6 +419,8 @@
       recUrl = URL.createObjectURL(f);
       recAudioEl.src = recUrl;
       recAudioEl.style.display = 'block';
+      // enable the STT action button now that a file is ready
+      sttBtn.disabled = false;
       resetRecBtn.disabled = false;
     });
 
